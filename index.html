@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Birthday John - 3D Particles</title>
+    <meta property="og:title" content="Happy Birthday John">
+    <meta property="og:description" content="A birthday greeting rendered with vivid 3D particles.">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#0b0b0f">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@700;900&family=Poppins:wght@600;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23ff6b6b'/%3E%3Ctext x='32' y='40' font-size='32' text-anchor='middle' fill='white'%3E%F0%9F%8E%89%3C/text%3E%3C/svg%3E">
+    <style>
+        :root {
+          --text-font: 'Noto Sans Thai', 'Poppins', Arial, sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: var(--text-font);
+            color: #fff;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        canvas { display: block; }
+        .vignette {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: radial-gradient(80% 80% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.35) 100%);
+        }
+        .ui {
+            position: fixed; right: 16px; bottom: 16px; z-index: 2; display: flex; gap: 8px;
+        }
+        .btn {
+            appearance: none; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+            font-family: var(--text-font); font-weight: 700; letter-spacing: 0.02em;
+            background: rgba(255,255,255,0.1); color: #fff; backdrop-filter: blur(6px);
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn:hover { background: rgba(255,255,255,0.2); }
+        .btn:active { transform: translateY(1px); }
+        @media (max-width: 768px) {
+          .btn { padding: 8px 12px; font-weight: 600; }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false">
+    <div id="canvas-container"></div>
+    <div class="vignette"></div>
+    <div class="ui">
+      <button id="btnShot" class="btn">Save Image</button>
+    </div>
+    <script type="module">
+      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/+esm';
+      import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js/+esm';
+
+      // Initialize Three.js scene, camera, and renderer
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+      // Orbit controls
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.1;
+      controls.enablePan = false;
+      controls.minDistance = 4.5;
+      controls.maxDistance = 18;
+
+      // Set background color
+      renderer.setClearColor(0x000000);
+
+      // Position camera
+      camera.position.z = 8.2;
+
+      // Create particles geometry and material
+      const particlesCount = 14000;
+      const positions = new Float32Array(particlesCount * 3);
+      const colors = new Float32Array(particlesCount * 3);
+
+      // Birthday colors: red, yellow, blue
+      const birthdayColors = [
+          new THREE.Color(0xff3366), // Pinkish red
+          new THREE.Color(0xffdd33), // Warm yellow
+          new THREE.Color(0x33aaff), // Sky blue
+          new THREE.Color(0x66ff99), // Mint
+          new THREE.Color(0xff66ff)  // Magenta
+      ];
+
+      // Initialize particles in random positions
+      for (let i = 0; i < particlesCount; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 20;     // x
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 20; // y
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 20; // z
+
+          // Assign random birthday colors
+          const color = birthdayColors[Math.floor(Math.random() * birthdayColors.length)];
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
+      }
+
+      // Create geometry and material
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      // Create a small radial gradient sprite for softer, vivid points
+      function makeCircleSprite(size = 128) {
+          const c = document.createElement('canvas');
+          c.width = c.height = size;
+          const ctx = c.getContext('2d');
+          const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+          g.addColorStop(0, 'rgba(255,255,255,1)');
+          g.addColorStop(0.35, 'rgba(255,255,255,0.85)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+          ctx.fill();
+          const texture = new THREE.CanvasTexture(c);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+          return texture;
+      }
+
+      const material = new THREE.PointsMaterial({
+          size: 0.06,
+          sizeAttenuation: true,
+          map: makeCircleSprite(128),
+          alphaTest: 0.02,
+          vertexColors: true,
+          transparent: true,
+          opacity: 1.0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+      });
+
+      // Create points object
+      const points = new THREE.Points(geometry, material);
+      scene.add(points);
+
+      // Animation variables
+      let animationTime = 0;
+      // Velocity array for sticky behavior
+      const velocities = new Float32Array(particlesCount * 3);
+
+      // Text formation positions (will be calculated)
+      let textPositions = [];
+
+      // Build point cloud from actual text glyphs using offscreen canvas
+      function buildTextPointCloud(text, {
+          fontFamily = 'Bold 240px Arial',   // large for crisp sampling
+          lineSpacing = 1.1,                 // line spacing multiplier
+          canvasWidth = 2000,
+          canvasHeight = 900,
+          sampleStep = 5,                    // pixel step for sampling density (smaller = denser)
+          alphaThreshold = 40,               // consider pixel as part of glyph if alpha above this
+          worldScale = 0.0065               // scale to world units
+      } = {}) {
+          const lines = text.split('\n');
+
+          const canvas = document.createElement('canvas');
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+          const ctx = canvas.getContext('2d');
+
+          // Background transparent
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+          // Configure font and alignment
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          // Prefer custom web font stack for crisp Thai/Latin rendering
+          ctx.font = fontFamily.replace('Arial', 'Arial');
+
+          // Compute vertical layout
+          const metrics = ctx.measureText('M');
+          const lineHeightPx = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+          const totalHeight = lineHeightPx * lines.length * lineSpacing;
+
+          const centerX = canvasWidth / 2;
+          const centerY = canvasHeight / 2;
+
+          // Draw each line
+          lines.forEach((line, idx) => {
+              const y = centerY - totalHeight / 2 + (idx + 0.5) * lineHeightPx * lineSpacing;
+              ctx.fillText(line, centerX, y);
+          });
+
+          // Read pixel data
+          const { data } = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+
+          // Find bounding box of drawn text for centering and scaling
+          let minX = canvasWidth, minY = canvasHeight, maxX = 0, maxY = 0;
+          for (let y = 0; y < canvasHeight; y += sampleStep) {
+              for (let x = 0; x < canvasWidth; x += sampleStep) {
+                  const idx = (y * canvasWidth + x) * 4 + 3; // alpha channel
+                  if (data[idx] > alphaThreshold) {
+                      if (x < minX) minX = x;
+                      if (y < minY) minY = y;
+                      if (x > maxX) maxX = x;
+                      if (y > maxY) maxY = y;
+                  }
+              }
+          }
+
+          const textWidth = Math.max(1, maxX - minX);
+          const textHeight = Math.max(1, maxY - minY);
+
+          // Sample points and convert to world coordinates centered at origin
+          const points = [];
+          for (let y = 0; y < canvasHeight; y += sampleStep) {
+              for (let x = 0; x < canvasWidth; x += sampleStep) {
+                  const idx = (y * canvasWidth + x) * 4 + 3; // alpha channel
+                  if (data[idx] > alphaThreshold) {
+                      const nx = ((x - (minX + textWidth / 2)) * worldScale);
+                      const ny = (-(y - (minY + textHeight / 2)) * worldScale);
+                      points.push({ x: nx, y: ny, z: (Math.random() - 0.5) * 0.02 });
+                  }
+              }
+          }
+
+          return points;
+      }
+
+      // Initialize text positions from glyph sampling (message split into 6 lines)
+      textPositions = buildTextPointCloud(
+        "HAPPY\n" +
+        "BIRTHDAY\n" +
+        "JOHN\n" +
+        "ขอให้สุขภาพแข็งแรง\n" +
+        "สมหวังในทุกสิ่งครับ",
+        {
+          fontFamily: '900 140px Arial',   // increase size slightly now that we have 5 lines without the closing line
+          lineSpacing: 1.14,
+          canvasWidth: 3400,
+          canvasHeight: 2200,
+          sampleStep: 6,
+          alphaThreshold: 28,
+          worldScale: 0.0076
+        }
+      );
+
+      function animate() {
+          requestAnimationFrame(animate);
+
+          animationTime += 0.01;
+
+          const pos = geometry.attributes.position.array;
+
+          // Subtle hue shift for vividness
+          const t = (Math.sin(animationTime * 0.6) + 1) * 0.5; // 0..1
+          const hueShift = 0.02 * Math.sin(animationTime * 0.25);
+          const colAttr = geometry.attributes.color;
+          for (let i = 0; i < particlesCount; i++) {
+              const r = colAttr.getX(i);
+              const g = colAttr.getY(i);
+              const b = colAttr.getZ(i);
+              // Convert to HSL, shift hue slightly, then back to RGB
+              const color = new THREE.Color(r, g, b);
+              const hsl = {};
+              color.getHSL(hsl);
+              hsl.h = (hsl.h + hueShift + i * 0.0001) % 1;
+              hsl.s = Math.min(1, hsl.s * 0.98 + 0.08);
+              hsl.l = Math.min(0.9, hsl.l * 0.9 + 0.12 + t * 0.07);
+              color.setHSL(hsl.h, hsl.s, hsl.l);
+              colAttr.setXYZ(i, color.r, color.g, color.b);
+          }
+          colAttr.needsUpdate = true;
+
+          // Sticky-to-font behavior using a spring-damper toward target text positions
+          const stiffness = 0.1;    // spring constant (slightly softer)
+          const damping = 0.85;     // velocity damping (smoother)
+          const jitterAmp = 0.014;  // reduced jitter for elegance
+
+          for (let i = 0; i < particlesCount && i < textPositions.length; i++) {
+              const tx = textPositions[i].x + Math.sin(animationTime * 1.2 + i * 0.07) * jitterAmp;
+              const ty = textPositions[i].y + Math.cos(animationTime * 1.1 + i * 0.09) * jitterAmp;
+              const tz = textPositions[i].z;
+
+              const ix = i * 3;
+              const iy = ix + 1;
+              const iz = ix + 2;
+
+              // Current position
+              const px = pos[ix];
+              const py = pos[iy];
+              const pz = pos[iz];
+
+              // Current velocity
+              let vx = velocities[ix];
+              let vy = velocities[iy];
+              let vz = velocities[iz];
+
+              // Spring force toward target
+              vx += (tx - px) * stiffness;
+              vy += (ty - py) * stiffness;
+              vz += (tz - pz) * stiffness;
+
+              // Damping
+              vx *= damping;
+              vy *= damping;
+              vz *= damping;
+
+              // Integrate
+              pos[ix] = px + vx;
+              pos[iy] = py + vy;
+              pos[iz] = pz + vz;
+
+              // Store velocity
+              velocities[ix] = vx;
+              velocities[iy] = vy;
+              velocities[iz] = vz;
+          }
+
+          // Optionally keep extra particles (if any) orbiting around
+          for (let i = textPositions.length; i < particlesCount; i++) {
+              const ix = i * 3;
+              const iy = ix + 1;
+              const iz = ix + 2;
+              const r = 0.2 + (i % 50) * 0.002;
+              pos[ix] += Math.sin(animationTime + i * 0.05) * r * 0.01;
+              pos[iy] += Math.cos(animationTime + i * 0.04) * r * 0.01;
+              pos[iz] += Math.sin(animationTime + i * 0.03) * r * 0.01;
+          }
+
+          // Rotate the entire particle system slowly for depth
+          points.rotation.y += 0.0008;
+
+          geometry.attributes.position.needsUpdate = true;
+
+          controls.update();
+          renderer.render(scene, camera);
+      }
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Screenshot button
+      document.getElementById('btnShot').addEventListener('click', () => {
+        const dataURL = renderer.domElement.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = 'happy-birthday.png';
+        a.click();
+      });
+
+      animate();
+    </script>
+</body>
+</html>
