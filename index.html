@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Birthday John - 3D Particles</title>
-    <meta property="og:title" content="Happy Birthday John">
+    <title>Happy Birthday ODY - 3D Particles</title>
+    <meta property="og:title" content="Happy Birthday ODY">
     <meta property="og:description" content="A birthday greeting rendered with vivid 3D particles.">
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#0b0b0f">
@@ -50,8 +50,38 @@
         }
         .btn:hover { background: rgba(255,255,255,0.2); }
         .btn:active { transform: translateY(1px); }
+        #greeting-text {
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            color: transparent;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: background 0.5s ease, transform 0.3s ease;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        #greeting-text:hover {
+            background: linear-gradient(45deg, #ff3366, #ffdd33, #33aaff);
+            -webkit-background-clip: text;
+            color: transparent;
+            transform: translateX(-50%) scale(1.1);
+        }
+        @keyframes gradientShift {
+            0%, 100% { background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1); }
+            50% { background: linear-gradient(45deg, #ff3366, #ffdd33, #33aaff); }
+        }
         @media (max-width: 768px) {
           .btn { padding: 8px 12px; font-weight: 600; }
+          #greeting-text { font-size: 2rem; }
+        }
+        @media (max-width: 480px) {
+          #greeting-text { font-size: 1.5rem; }
         }
     </style>
 </head>
@@ -99,6 +129,9 @@
           new THREE.Color(0x66ff99), // Mint
           new THREE.Color(0xff66ff)  // Magenta
       ];
+
+      // Global color index for whole system color cycling
+      let colorCycleIndex = 0;
 
       // Initialize particles in random positions
       for (let i = 0; i < particlesCount; i++) {
@@ -243,7 +276,7 @@
       textPositions = buildTextPointCloud(
         "HAPPY\n" +
         "BIRTHDAY\n" +
-        "JOHN\n" +
+        "ODY\n" +
         "ขอให้สุขภาพแข็งแรง\n" +
         "สมหวังในทุกสิ่งครับ",
         {
@@ -257,6 +290,21 @@
         }
       );
 
+      // Add gradient to the text particles
+      let minX = Infinity, maxX = -Infinity;
+      textPositions.forEach(p => {
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+      });
+      const leftColor = new THREE.Color(0xff3366);
+      const rightColor = new THREE.Color(0x33aaff);
+      const colAttr = geometry.attributes.color;
+      for (let i = 0; i < textPositions.length; i++) {
+          const t = (textPositions[i].x - minX) / (maxX - minX);
+          const color = leftColor.clone().lerp(rightColor, t);
+          colAttr.setXYZ(i, color.r, color.g, color.b);
+      }
+
       function animate() {
           requestAnimationFrame(animate);
 
@@ -264,30 +312,24 @@
 
           const pos = geometry.attributes.position.array;
 
-          // Subtle hue shift for vividness
-          const t = (Math.sin(animationTime * 0.6) + 1) * 0.5; // 0..1
-          const hueShift = 0.02 * Math.sin(animationTime * 0.25);
+          // Global color cycling for all particles
+          colorCycleIndex += 0.01 * 0.2; // increment global color index
+          let idx = colorCycleIndex % birthdayColors.length;
+          let c1 = birthdayColors[Math.floor(idx)];
+          let c2 = birthdayColors[Math.floor((idx + 1) % birthdayColors.length)];
+          let t = idx % 1;
+          const currentColor = c1.clone().lerp(c2, t);
+
           const colAttr = geometry.attributes.color;
           for (let i = 0; i < particlesCount; i++) {
-              const r = colAttr.getX(i);
-              const g = colAttr.getY(i);
-              const b = colAttr.getZ(i);
-              // Convert to HSL, shift hue slightly, then back to RGB
-              const color = new THREE.Color(r, g, b);
-              const hsl = {};
-              color.getHSL(hsl);
-              hsl.h = (hsl.h + hueShift + i * 0.0001) % 1;
-              hsl.s = Math.min(1, hsl.s * 0.98 + 0.08);
-              hsl.l = Math.min(0.9, hsl.l * 0.9 + 0.12 + t * 0.07);
-              color.setHSL(hsl.h, hsl.s, hsl.l);
-              colAttr.setXYZ(i, color.r, color.g, color.b);
+              colAttr.setXYZ(i, currentColor.r, currentColor.g, currentColor.b);
           }
           colAttr.needsUpdate = true;
 
           // Sticky-to-font behavior using a spring-damper toward target text positions
           const stiffness = 0.1;    // spring constant (slightly softer)
           const damping = 0.85;     // velocity damping (smoother)
-          const jitterAmp = 0.014;  // reduced jitter for elegance
+          const jitterAmp = hovered ? 0.008 : 0.014;  // reduced jitter on hover
 
           for (let i = 0; i < particlesCount && i < textPositions.length; i++) {
               const tx = textPositions[i].x + Math.sin(animationTime * 1.2 + i * 0.07) * jitterAmp;
@@ -364,6 +406,11 @@
         a.download = 'happy-birthday.png';
         a.click();
       });
+
+      // Hover effect
+      let hovered = false;
+      renderer.domElement.addEventListener('mouseenter', () => { hovered = true; });
+      renderer.domElement.addEventListener('mouseleave', () => { hovered = false; });
 
       animate();
     </script>
